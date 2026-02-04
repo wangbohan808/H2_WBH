@@ -1,4 +1,9 @@
 # 忽略 MDK 文件夹下的所有内容
 MDK/*
-# 但不忽略 H2_WBH.uvprojx 项目文件
+
+# 必须跟踪：项目文件
 !MDK/H2_WBH.uvprojx
+
+# 建议跟踪：RTE 配置文件（避免切换分支时的配置问题）
+!MDK/RTE/
+
