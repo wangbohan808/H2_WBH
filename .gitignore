@@ -1,0 +1,4 @@
+# 忽略 MDK 文件夹下的所有内容
+MDK/*
+# 但不忽略 H2_WBH.uvprojx 项目文件
+!MDK/H2_WBH.uvprojx
