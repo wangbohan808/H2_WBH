@@ -124,6 +124,12 @@ void pole_decoder_reset(void)
 
 void pole_detect_capture(void)
 {
+	/* 正常模式、机器人不在座，直接返回退出 */
+	if(base_work_mode == BASE_WORK_MODE_NORMAL && robot_at_dock_state == ROBOT_STATE_NOT_AT_DOCK)
+	{
+		return;
+	}
+        
 	uint8_t state;
 	uint16_t adc_value;
 	

@@ -11,6 +11,8 @@
 #include "dev_ir.h"
 #include "func_ir_ack.h"
 #include "dev_led.h"
+#include "hal_tim.h"
+
 /***
  此函数不断输出方波
  arr：自动重装载值，影响一个周期的计数值 psc：预分频值，影响每一个时钟周期信号的时间 
@@ -109,40 +111,9 @@ void ATIM_IRQHandler(void)
     if (ATIM_GetITStatus(ATIM_STATE_UIF))
     {
         ATIM_ClearITPendingBit(ATIM_STATE_UIF);
-
         
-        /* 正常模式、机器人不在座，才启动发送红外引导码功能 */
-        if(base_work_mode == BASE_WORK_MODE_NORMAL && robot_at_dock_state == ROBOT_STATE_NOT_AT_DOCK)
-        {
-            ir_docking_guide_send();
-        }
-        else
-        {
-            pole_detect_capture();
-            ir_send_ack();
-        }
-        
-        /* 正常模式灯显可以直接确定，产测模式需要灵活调整；所以三个状态确定后，直接确定正常模式的灯显 */
-        if(base_work_mode == BASE_WORK_MODE_NORMAL)
-        {
-            /* 正常模式下，尘袋不在位灯显一定是闪烁 */
-            if(dust_bag_state == DUST_BAG_STATE_UNSTALL)
-            {
-                led_twinkle();
-            }
-            else
-            {
-                /* 最后一级判断机器是否在位 */
-                if(robot_at_dock_state == ROBOT_STATE_AT_DOCK)
-                {
-                    led_breath();
-                }
-                else
-                {
-                    LED_ON();
-                }
-            }
-        }
+        /* 调用时间片调度系统，执行已注册的回调函数 */
+        hal_timer_run(HAL_TIMER_INDEX_100US);
     }
 }
 
@@ -152,16 +123,8 @@ void SysTick_Handler(void)
 {
     tick_ms_num++;
     
-    /* 消耗led_twinkle_time的一个数值，执行led_twinkle函数内部的一个步骤 */
-    if(led_twinkle_time > 0)
-    {
-        led_twinkle_time--;
-        led_twinkle();
-    }
-    else
-    {
-        led_twinkle_time = 0;
-    }
+    /* 调用时间片调度系统，执行已注册的回调函数 */
+    hal_timer_run(HAL_TIMER_INDEX_1MS);
 }
 
 uint64_t timer_ms(void)

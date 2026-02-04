@@ -6,6 +6,7 @@
 #include "func_pole_decoder.h"
 #include "func_docking_guide.h"
 #include "func_dust_collect.h"
+#include "func_ir_ack.h"
 #include "base_self_det.h"
 #include "base_dust_mode.h"
 
@@ -19,11 +20,14 @@
 #include "hal_gpio.h"
 #include "uart_cfg.h"
 #include "hal_uart.h"
+#include "hal_tim.h"
+#include "dev_led.h"
 
 
 
 
 static void Hardware_init(void);
+static void Timer_Task_Init(void);
 
 #if ENABLE_DEBUG_PRINT
 
@@ -40,8 +44,9 @@ int32_t main(void)
     /* 这样配置相当于每1ms触发一次系统滴答中断 */
     InitTick(48000000);
     /* 初始化硬件 */
-    Hardware_init();
-    
+    Hardware_init();   
+    /* 初始化时间片任务 */
+    Timer_Task_Init();
     /* 初始化集尘模式管理模块 */
     dust_mode_init();
     
@@ -116,7 +121,30 @@ static void Hardware_init(void)
     gpio_input_cfg(CW_GPIOA , GPIO_PIN_0); 
 
     /* 配置看门狗：防止程序跑飞 */
-    iwdg_init();
+    iwdg_init();    
+}
+
+/* 时间片任务初始化：统一注册所有在中断中执行的任务 */
+static void Timer_Task_Init(void)
+{
+    /* ==================== 注册100us定时器的任务 ==================== */
+    
+    /* 红外引导码发送任务：每100us执行一次（trigger_interval = 1） */
+    hal_timer_task_register(HAL_TIMER_INDEX_100US, ir_docking_guide_send, 1);
+    
+    /* 极柱检测捕获任务：每100us执行一次（trigger_interval = 1） */
+    hal_timer_task_register(HAL_TIMER_INDEX_100US, pole_detect_capture, 1);
+    
+    /* 红外应答发送任务：每100us执行一次（trigger_interval = 1） */
+    hal_timer_task_register(HAL_TIMER_INDEX_100US, ir_send_ack, 1);
+    
+    /* LED正常模式控制任务：每100us执行一次（trigger_interval = 1） */
+    hal_timer_task_register(HAL_TIMER_INDEX_100US, led_normal_mode_control, 1);
+    
+    /* ==================== 注册1ms定时器的任务 ==================== */
+    
+    /* LED闪烁时间处理任务：每1ms执行一次（trigger_interval = 1） */
+    hal_timer_task_register(HAL_TIMER_INDEX_1MS, led_twinkle_time_process, 1);
 }
 
 

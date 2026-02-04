@@ -531,6 +531,16 @@
           </Files>
         </Group>
         <Group>
+          <GroupName>Utils</GroupName>
+          <Files>
+            <File>
+              <FileName>utils_queue.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\USER\Utils\src\utils_queue.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
           <GroupName>Device</GroupName>
           <Files>
             <File>
@@ -547,16 +557,6 @@
               <FileName>dev_led.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\USER\Device\src\dev_led.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>Utils</GroupName>
-          <Files>
-            <File>
-              <FileName>utils_queue.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\USER\Utils\src\utils_queue.c</FilePath>
             </File>
           </Files>
         </Group>

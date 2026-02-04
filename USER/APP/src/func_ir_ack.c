@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "tim_cfg.h"
 #include "dev_ir.h"
+#include "base_state.h"
 
 static uint32_t ir_ack_code_modulate(uint8_t ir_code)
 {
@@ -188,6 +189,12 @@ uint8_t ir_sent_buf(uint8_t buf[], uint8_t len)
 
 void ir_send_ack(void)
 {
+	/* 正常模式、机器人不在座，直接返回退出 */
+	if(base_work_mode == BASE_WORK_MODE_NORMAL && robot_at_dock_state == ROBOT_STATE_NOT_AT_DOCK)
+	{
+		return;
+	}
+    
     static uint8_t ir_send_ack_state = 0;
     static uint64_t time_cnt_reserve = 0;
     

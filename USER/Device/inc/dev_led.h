@@ -11,5 +11,7 @@ void led_twinkle(void);
 extern uint32_t led_twinkle_time;
 void set_led_twinkle_time (uint32_t time);
 
+void led_normal_mode_control(void);
+void led_twinkle_time_process(void);
 
 #endif /* __DEV_LED_H */
