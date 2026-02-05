@@ -609,6 +609,11 @@
               <FilePath>..\USER\APP\src\base_state.c</FilePath>
             </File>
             <File>
+              <FileName>base_event.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\USER\APP\src\base_event.c</FilePath>
+            </File>
+            <File>
               <FileName>base_dust_mode.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\USER\APP\src\base_dust_mode.c</FilePath>
