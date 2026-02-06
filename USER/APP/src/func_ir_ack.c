@@ -93,98 +93,184 @@ void set_ir_sent_bite(uint8_t count)
 /* 定义一个数组，向特定位写入数据，进而进行发送 */
 uint8_t sent_buff[13] = {0};
 
-/* 传递数组的头指针、长度：根据两信息，逐字节发送数据 */
-uint8_t ir_sent_buf(uint8_t buf[], uint8_t len)
+///* 传递数组的头指针、长度：根据两信息，逐字节发送数据 */
+//uint8_t ir_sent_buf(uint8_t buf[], uint8_t len)
+//{
+//    static uint8_t index = 0;
+//    static uint32_t data = 0;
+//    static uint8_t i = 0;      // 当前处理数组对应的字节索引
+//    static uint8_t n = 0;      // 当前字节剩余待发送的位数
+//    uint8_t j = 0;
+//    
+//    if(ir_send_count == 0)
+//    {
+//        return 0;
+//    }
+//    
+//    switch(index)
+//    {
+//        case 0:  // 发送数据头
+//        {
+//            if(sent_head())
+//            {
+//                index = 1;
+//            }
+//        }
+//        break;
+//        
+//        case 1:  // 发送数据
+//        {
+//            /* 判断是否进行更新发送的字节：当前字节（数组的元素）的位数已发送完，准备下一个字节的编码 */
+//            if(n == 0)
+//            {
+//                /* 计数小于数组大小，还有字节需要发送 */
+//                if(i < len)  
+//                {
+//                    /* 计算当前字节编码后的位数 */
+//                    for(j = 0; j < 8; j++)
+//                    {
+//                        if((buf[i] << j) & 0x80)
+//                        {
+//                            n += 3;  // 1编码为3位
+//                        }
+//                        else
+//                        {
+//                            n += 2;  // 0编码为2位
+//                        }
+//                    }
+//                    
+//                    /* 编码当前字节 */
+//                    data = ir_ack_code_modulate(buf[i]);
+//                    
+//                    i++;  // 指向下一个字节
+//                }
+//                else  
+//                {
+//                    /* 所有字节发送完成，进入发送尾阶段 */
+//                    index = 2;  
+//                }
+//                
+//            }
+//            
+//            /* 字节编码后的数据发送流程 */
+//            if(n > 0)
+//            {
+//                n--;
+//                if(data & (0x01 << n))
+//                {
+//                    IR_MIDDLE_LEFT_ON;
+//                    IR_MIDDLE_RIGHT_ON;
+//                }
+//                else
+//                {
+//                    IR_MIDDLE_LEFT_OFF;
+//                    IR_MIDDLE_RIGHT_OFF;
+//                }
+//            }
+//        }
+//        break;
+//        
+//        case 2:  // 发送数据尾
+//        {
+//            if(sent_tail())
+//            {
+//                ir_send_count--;
+//                index = 0;
+//                i = 0;
+//                return 1;
+//            }
+//        }
+//        break;
+//    }
+//    
+//    /* 没有走到case0的数据尾：一帧（定义的一次完整数组）的数据没有发送完毕 */
+//    return 0;
+//}
+
+uint8_t ir_sent_buf(uint8_t buf[],uint8_t len)
 {
-    static uint8_t index = 0;
-    static uint32_t data = 0;
-    static uint8_t i = 0;      // 当前处理数组对应的字节索引
-    static uint8_t n = 0;      // 当前字节剩余待发送的位数
-    uint8_t j = 0;
-    
-    if(ir_send_count == 0)
-    {
-        return 0;
-    }
-    
-    switch(index)
-    {
-        case 0:  // 发送数据头
-        {
-            if(sent_head())
-            {
-                index = 1;
-            }
-        }
-        break;
-        
-        case 1:  // 发送数据
-        {
-            /* 判断是否进行更新发送的字节：当前字节（数组的元素）的位数已发送完，准备下一个字节的编码 */
-            if(n == 0)
-            {
-                /* 计数小于数组大小，还有字节需要发送 */
-                if(i < len)  
-                {
-                    /* 计算当前字节编码后的位数 */
-                    for(j = 0; j < 8; j++)
-                    {
-                        if((buf[i] << j) & 0x80)
-                        {
-                            n += 3;  // 1编码为3位
-                        }
-                        else
-                        {
-                            n += 2;  // 0编码为2位
-                        }
-                    }
-                    
-                    /* 编码当前字节 */
-                    data = ir_ack_code_modulate(buf[i]);
-                    
-                    i++;  // 指向下一个字节
-                }
-                else  
-                {
-                    /* 所有字节发送完成，进入发送尾阶段 */
-                    index = 2;  
-                }
-                
-            }
-            
-            /* 字节编码后的数据发送流程 */
-            if(n > 0)
-            {
-                n--;
-                if(data & (0x01 << n))
-                {
-                    IR_MIDDLE_LEFT_ON;
-                    IR_MIDDLE_RIGHT_ON;
-                }
-                else
-                {
-                    IR_MIDDLE_LEFT_OFF;
-                    IR_MIDDLE_RIGHT_OFF;
-                }
-            }
-        }
-        break;
-        
-        case 2:  // 发送数据尾
-        {
-            if(sent_tail())
-            {
-                ir_send_count--;
-                index = 0;
-                i = 0;
-                return 1;
-            }
-        }
-        break;
-    }
-    
-    /* 没有走到case0的数据尾：一帧（定义的一次完整数组）的数据没有发送完毕 */
-    return 0;
+      static uint8_t index=0;
+	  static uint32_t data=0;
+	  static uint8_t i=0;
+	  static uint8_t n=0;
+	  uint8_t j=0;
+      if(ir_send_count == 0)
+      {
+          return 0;
+      }
+	  switch(index)
+	  {
+		   case 0:            //发送数据头
+		   {
+			   if(sent_head())
+			   {
+				   index=1;
+				   data=ir_ack_code_modulate(buf[0]);           //1a 00011010 //16-24
+				   for(j=0;j<8;j++)
+				   {
+						if((buf[0]<<j)&0x80)
+						{
+							 n+=3;
+						}
+						else
+						{
+							 n+=2;
+						}
+					}
+			  }				
+		  }break;
+		  case 1:               //发送数据
+		  {
+			  if(n)
+			  {
+				  n--;
+				  if(data&(0x01<<n))
+				  {
+						IR_MIDDLE_LEFT_ON;
+						IR_MIDDLE_RIGHT_ON;
+				  }
+		  		  else
+				  {
+					   IR_MIDDLE_LEFT_OFF;
+                       IR_MIDDLE_RIGHT_OFF;
+				  }
+			  }
+			  if(n==0)
+			  {
+				  i++;
+				  if(i<=len-1)
+				  {
+					  for(j=0;j<8;j++)
+					  {
+						  if((buf[i]<<j)&0x80)
+						  {
+							  n+=3;
+						  }
+						  else
+						  {
+							  n+=2;
+						  }
+					  }
+					  data=ir_ack_code_modulate(buf[i]);
+				  }
+				  else if(i>=len)
+				  {
+					  index=2;
+				  }
+			  }
+			}break;
+			case 2:
+			{
+			     if(sent_tail())         //发送数据尾
+				 {
+					 ir_send_count --;
+				     index=0;
+					 i=0;
+					 return 1;
+				 }
+			}break;
+		}
+		return 0;
 }
 
 void ir_send_ack(void)

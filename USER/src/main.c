@@ -136,7 +136,7 @@ static void Timer_Task_Init(void)
     hal_timer_task_register(HAL_TIMER_INDEX_100US, pole_detect_capture, 1);
     
     /* 红外应答发送任务：每100us执行一次（trigger_interval = 1） */
-    hal_timer_task_register(HAL_TIMER_INDEX_100US, ir_send_ack, 1);
+    hal_timer_task_register(HAL_TIMER_INDEX_1MS, ir_send_ack, 1);
     
     /* LED正常模式控制任务：每100us执行一次（trigger_interval = 1） */
     hal_timer_task_register(HAL_TIMER_INDEX_100US, led_normal_mode_control, 1);
