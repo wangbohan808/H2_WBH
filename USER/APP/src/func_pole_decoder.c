@@ -33,12 +33,9 @@ uint32_t pole_low_time = 0;                       // POLE_LOW 状态持续时间
 uint32_t pole_dust_collect_high_time = 0;         // POLE_DUST_COLLECT_HIGH 状态持续时间
 uint32_t pole_dust_collect_low_time = 0;          // POLE_DUST_COLLECT_LOW 状态持续时间
 uint32_t pole_dust_collect_complete_time = 0;     // POLE_DUST_COLLECT_COMPLETE 状态持续时间
-uint32_t pole_test_mode_time = 0;                 // POLE_TEST_MODE 状态持续时间
-uint32_t pole_test_mode_resync_time = 0;          // POLE_TEST_MODE_RESYNC 状态持续时间
-uint32_t pole_test_mode_select_time = 0;          // POLE_TEST_MODE_SELECT 状态持续时间
 
 /* 错误计数和统计变量 */
-static uint8_t consecutive_level = 0;  // 连续电平计数
+uint8_t consecutive_level = 0;  // 连续电平计数
 
 /* 队列满计数 */
 uint16_t queue_if_full_flag; 
@@ -60,9 +57,6 @@ const char* get_state_name(pole_decode_state_e state)
         case POLE_DUST_COLLECT_HIGH:     return "POLE_DUST_COLLECT_HIGH";
         case POLE_DUST_COLLECT_LOW:      return "POLE_DUST_COLLECT_LOW";
         case POLE_DUST_COLLECT_COMPLETE: return "POLE_DUST_COLLECT_COMPLETE";
-        case POLE_TEST_MODE:             return "POLE_TEST_MODE";
-        case POLE_TEST_MODE_RESYNC:      return "POLE_TEST_MODE_RESYNC";
-        case POLE_TEST_MODE_SELECT:      return "POLE_TEST_MODE_SELECT";
         default:                         return "UNKNOWN";
     }
 }
@@ -97,6 +91,7 @@ static void change_state(pole_decode_t *decode_p, pole_decode_state_e new_state)
     /* 切换状态并重置计时器：新的状态、新的计时 */
     decode_p->state = new_state;
     decode_p->timer = 0;
+    consecutive_level = 0;
 }
 
 /* 重置极片解码器：重置状态机到POLE_RESYNC，并将所有状态时间统计归零 */
@@ -117,9 +112,6 @@ void pole_decoder_reset(void)
     pole_dust_collect_high_time = 0;
     pole_dust_collect_low_time = 0;
     pole_dust_collect_complete_time = 0;
-    pole_test_mode_time = 0;
-    pole_test_mode_resync_time = 0;
-    pole_test_mode_select_time = 0;
 }
 
 void pole_detect_capture(void)
@@ -220,6 +212,11 @@ uint8_t pole_decoder_process(void)
             
             case POLE_HIGH:
             {
+                if(decode_p->timer > 50000)
+                {
+                    pole_decoder_reset();
+                    base_work_mode = BASE_WORK_MODE_NORMAL;
+                }
 				if(state == 1)
 				{
 					// 检测到高电平，consecutive_level重置，继续等待连续的低电平
@@ -235,7 +232,6 @@ uint8_t pole_decoder_process(void)
 						pole_high_time = decode_p->timer;
 						// 连续5个低电平，进入POLE_LOW状态
 						change_state(decode_p, POLE_LOW);
-						consecutive_level = 0;
 					}
 					// 未达到低电平阈值数量，继续等待
 				}                
@@ -245,13 +241,14 @@ uint8_t pole_decoder_process(void)
             /* =======根据第一个低电平持续时间，判断进入集尘模式或是产测模式======= */
 			case POLE_LOW:
 			{
-				/* 超时处理：如果在此状态持续超过800ms，返回到POLE_RESYNC状态 */
-				if(decode_p->timer > 8000)
-				{
-					pole_decoder_reset();
-				}
+                if(decode_p->timer > 50000)
+                {
+                    pole_decoder_reset();
+                    base_work_mode = BASE_WORK_MODE_NORMAL;
+                }
+                
 				// 在低电平状态下，持续计时
-				else if(state == 0)
+				if(state == 0)
 				{
                     consecutive_level = 0;
                     count_low++;
@@ -285,11 +282,82 @@ uint8_t pole_decoder_process(void)
                             set_ir_send_count(3);	
                             set_ir_sent_bite(5);
 
-                            change_state(decode_p, POLE_TEST_MODE);
-
                             LED_OFF();
+                             
+                            change_state(decode_p, POLE_HIGH);
 
                          }
+                         
+						else if(pole_low_time >= POLE_LOW_TIME_600MS_MIN && pole_low_time <= POLE_LOW_TIME_600MS_MAX && base_work_mode == BASE_WORK_MODE_TEST)
+						{
+                            sent_buff[0]=0xaa;
+                            sent_buff[1]=0x04;
+                            sent_buff[2]=0x02;
+                            sent_buff[3]=soft_version;
+                            sent_buff[4]=version[0];
+                            sent_buff[5]=version[1];
+                            sent_buff[6]=ac_frequency;
+                            sent_buff[7]=sent_buff[0]+sent_buff[1]+sent_buff[2]+sent_buff[3]+sent_buff[4]+sent_buff[5]+sent_buff[6];		
+                            set_ir_send_count(3);		
+                            set_ir_sent_bite(8);
+                            
+                            change_state(decode_p, POLE_HIGH);
+						}
+						else if(pole_low_time >= POLE_LOW_TIME_800MS_MIN && pole_low_time <= POLE_LOW_TIME_800MS_MAX && base_work_mode == BASE_WORK_MODE_TEST)
+						{
+                            sent_buff[0]=0xaa;
+                            sent_buff[1]=0x04;
+                            sent_buff[2]=0x03;
+                            sent_buff[3]=(0x02-dust_bag_state);
+                            sent_buff[4]=get_charging_cur()>>8;
+                            sent_buff[5]=get_charging_cur()&0xff;
+                            sent_buff[6]=(0x02-get_gpio_level(CW_GPIOB,GPIO_PIN_1));
+                            sent_buff[7]=sent_buff[0]+sent_buff[1]+sent_buff[2]+sent_buff[3]+sent_buff[4]+sent_buff[5]+sent_buff[6];		
+                            set_ir_send_count(3);	
+                            set_ir_sent_bite(8);
+                            
+                            set_led_twinkle_time(2000);
+                            
+                            change_state(decode_p, POLE_HIGH);
+						}
+						else if(pole_low_time >= POLE_LOW_TIME_1000MS_MIN && pole_low_time <= POLE_LOW_TIME_1000MS_MAX && base_work_mode == BASE_WORK_MODE_TEST)
+						{
+                            if((timer_elapsed(dust_collect_time_cnt) > 5 * 1000))
+                            {
+                                sent_buff[0]=0xaa;
+                                sent_buff[1]=0x01;
+                                sent_buff[2]=0x04;
+                                sent_buff[3]=0x01;
+                                sent_buff[4]=sent_buff[0] +sent_buff[1]+sent_buff[2]+sent_buff[3];
+                                /*使能红外发码*/
+                                set_ir_send_count(3);
+                                set_ir_sent_bite(5);
+
+                                dust_absorption_time = 2;
+                                need_duty = 1;
+                                
+                                change_state(decode_p, POLE_HIGH);
+                            }	
+						}
+						else if(pole_low_time >= POLE_LOW_TIME_1200MS_MIN && pole_low_time <= POLE_LOW_TIME_1200MS_MAX && base_work_mode == BASE_WORK_MODE_TEST)
+						{
+                            if((get_time_for_dust_finish() > 5 * 1000))
+                            {
+                                sent_buff[0]=0xaa;
+                                sent_buff[1]=0x01;
+                                sent_buff[2]=0x04;
+                                sent_buff[3]=0x01;
+                                sent_buff[4]=sent_buff[0] +sent_buff[1]+sent_buff[2]+sent_buff[3];
+                                /*使能红外发码*/
+                                set_ir_send_count(3);
+                                set_ir_sent_bite(5);
+
+                                dust_absorption_time = 2;
+                                need_duty = 1;
+
+                                change_state(decode_p, POLE_HIGH);                              
+                            }
+						}
                     }
 				}
 			}
@@ -379,141 +447,6 @@ uint8_t pole_decoder_process(void)
 				pole_dust_collect_complete_time = decode_p->timer;
                 /* 完成集尘，回归正常模式的初始态 */
 				pole_decoder_reset();
-            }
-            break;
-
-            /* =======产测模式分支======= */
-			case POLE_TEST_MODE:
-			{
-                if(state == 0)
-				{
-					consecutive_level = 0;
-				}
-				else
-				{
-					consecutive_level++;
-					if(consecutive_level >= CONSECUTIVE_LEVEL_COUNT)
-					{
-						// 保存POLE_TEST_MODE状态的持续时间
-						pole_test_mode_time = decode_p->timer;
-						change_state(decode_p, POLE_TEST_MODE_RESYNC);
-						consecutive_level = 0;
-					}
-					// 否则继续等待
-				}
-			}
-			break;
-
-            case POLE_TEST_MODE_RESYNC:
-            {
-                if(state == 1)
-				{
-					consecutive_level = 0;
-				}
-				else
-				{
-					consecutive_level++;
-					if(consecutive_level >= CONSECUTIVE_LEVEL_COUNT)
-					{
-						// 保存POLE_TEST_MODE_RESYNC状态的持续时间
-						pole_test_mode_resync_time = decode_p->timer;
-						change_state(decode_p, POLE_TEST_MODE_SELECT);
-						consecutive_level = 0;
-					}
-					// 否则继续等待
-				}
-            }
-            break;
-
-            case POLE_TEST_MODE_SELECT:
-            {
-				/* 超时处理：如果在此状态持续超过3000ms，返回到POLE_RESYNC状态 */
-				if(decode_p->timer > 30000)
-				{
-					pole_decoder_reset();
-				}
-				// 在低电平状态下，持续计时
-				if(state == 0)
-				{
-                    consecutive_level = 0;
-				}
-				else
-				{
-                    consecutive_level++;
-					
-                    if(consecutive_level >= CONSECUTIVE_LEVEL_COUNT)
-                    {
-						pole_test_mode_select_time = decode_p->timer;
-						if(pole_test_mode_select_time >= POLE_LOW_TIME_600MS_MIN && pole_test_mode_select_time <= POLE_LOW_TIME_600MS_MAX)
-						{
-                            sent_buff[0]=0xaa;
-                            sent_buff[1]=0x04;
-                            sent_buff[2]=0x02;
-                            sent_buff[3]=soft_version;
-                            sent_buff[4]=version[0];
-                            sent_buff[5]=version[1];
-                            sent_buff[6]=ac_frequency;
-                            sent_buff[7]=sent_buff[0]+sent_buff[1]+sent_buff[2]+sent_buff[3]+sent_buff[4]+sent_buff[5]+sent_buff[6];		
-                            set_ir_send_count(3);		
-                            set_ir_sent_bite(8);
-						}
-						else if(pole_test_mode_select_time >= POLE_LOW_TIME_800MS_MIN && pole_test_mode_select_time <= POLE_LOW_TIME_800MS_MAX)
-						{
-                            sent_buff[0]=0xaa;
-                            sent_buff[1]=0x04;
-                            sent_buff[2]=0x03;
-                            sent_buff[3]=(0x02-dust_bag_state);
-                            sent_buff[4]=get_charging_cur()>>8;
-                            sent_buff[5]=get_charging_cur()&0xff;
-                            sent_buff[6]=(0x02-get_gpio_level(CW_GPIOB,GPIO_PIN_1));
-                            sent_buff[7]=sent_buff[0]+sent_buff[1]+sent_buff[2]+sent_buff[3]+sent_buff[4]+sent_buff[5]+sent_buff[6];		
-                            set_ir_send_count(3);	
-                            set_ir_sent_bite(8);
-                            
-                            set_led_twinkle_time(2000);
-						}
-						else if(pole_test_mode_select_time >= POLE_LOW_TIME_1000MS_MIN && pole_test_mode_select_time <= POLE_LOW_TIME_1000MS_MAX)
-						{
-                            if((timer_elapsed(dust_collect_time_cnt) > 5 * 1000))
-                            {
-                                sent_buff[0]=0xaa;
-                                sent_buff[1]=0x01;
-                                sent_buff[2]=0x04;
-                                sent_buff[3]=0x01;
-                                sent_buff[4]=sent_buff[0] +sent_buff[1]+sent_buff[2]+sent_buff[3];
-                                /*使能红外发码*/
-                                set_ir_send_count(3);
-                                set_ir_sent_bite(5);
-
-                                dust_absorption_time = 2;
-                                need_duty = 1;
-                            }	
-						}
-						else if(pole_test_mode_select_time >= POLE_LOW_TIME_1200MS_MIN && pole_test_mode_select_time <= POLE_LOW_TIME_1200MS_MAX)
-						{
-                            if((get_time_for_dust_finish() > 5 * 1000))
-                            {
-                                sent_buff[0]=0xaa;
-                                sent_buff[1]=0x01;
-                                sent_buff[2]=0x04;
-                                sent_buff[3]=0x01;
-                                sent_buff[4]=sent_buff[0] +sent_buff[1]+sent_buff[2]+sent_buff[3];
-                                /*使能红外发码*/
-                                set_ir_send_count(3);
-                                set_ir_sent_bite(5);
-
-                                dust_absorption_time = 2;
-                                need_duty = 1;                                
-                            }
-						}
-						else if(pole_test_mode_select_time >= POLE_LOW_TIME_2000MS_MIN && pole_test_mode_select_time <= POLE_LOW_TIME_2000MS_MAX)
-						{
-                            /* 退出产测，回归正常模式的初始态 */
-							pole_decoder_reset();
-                            base_work_mode = BASE_WORK_MODE_NORMAL;
-						}                       
-                    }
-				}
             }
             break;
 
