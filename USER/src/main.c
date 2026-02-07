@@ -4,6 +4,7 @@
 #include "cw32l010_systick.h"
 
 #include "func_pole_decoder.h"
+#include "func_ir_decoder.h"
 #include "func_docking_guide.h"
 #include "func_dust_collect.h"
 #include "func_ir_ack.h"
@@ -113,6 +114,7 @@ static void Hardware_init(void)
     adc_capture_cfg();
 
     ir_output_init();
+    ir_input_init();
 
     /* 配置控制风机转动的端口 */
     fan_gpio_init();
@@ -134,9 +136,9 @@ static void Timer_Task_Init(void)
     
     /* 极柱检测捕获任务：每100us执行一次（trigger_interval = 1） */
     hal_timer_task_register(HAL_TIMER_INDEX_100US, pole_detect_capture, 1);
-    
-    /* 红外应答发送任务：每100us执行一次（trigger_interval = 1） */
-    hal_timer_task_register(HAL_TIMER_INDEX_1MS, ir_send_ack, 1);
+
+    /* 红外检测捕获任务：每100us执行一次（trigger_interval = 1） */
+    hal_timer_task_register(HAL_TIMER_INDEX_100US, ir_detect_capture, 1);
     
     /* LED正常模式控制任务：每100us执行一次（trigger_interval = 1） */
     hal_timer_task_register(HAL_TIMER_INDEX_100US, led_normal_mode_control, 1);
@@ -145,6 +147,9 @@ static void Timer_Task_Init(void)
     
     /* LED闪烁时间处理任务：每1ms执行一次（trigger_interval = 1） */
     hal_timer_task_register(HAL_TIMER_INDEX_1MS, led_twinkle_time_process, 1);
+    
+    /* 红外应答发送任务：每1ms执行一次（trigger_interval = 1） */
+    hal_timer_task_register(HAL_TIMER_INDEX_1MS, ir_send_ack, 1);
 }
 
 

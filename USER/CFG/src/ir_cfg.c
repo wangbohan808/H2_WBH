@@ -14,3 +14,9 @@ void ir_output_init(void)
     gpio_output_cfg(CW_GPIOA,GPIO_PIN_1);     
     gpio_output_cfg(CW_GPIOA,GPIO_PIN_2);    
 }
+
+void ir_input_init(void)
+{
+    gpio_input_cfg(CW_GPIOA,GPIO_PIN_3);
+}
+

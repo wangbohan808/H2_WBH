@@ -634,6 +634,11 @@
               <FilePath>..\USER\APP\src\func_ir_ack.c</FilePath>
             </File>
             <File>
+              <FileName>func_ir_decoder.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\USER\APP\src\func_ir_decoder.c</FilePath>
+            </File>
+            <File>
               <FileName>func_pole_decoder.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\USER\APP\src\func_pole_decoder.c</FilePath>
