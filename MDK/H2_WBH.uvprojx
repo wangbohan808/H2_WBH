@@ -619,6 +619,16 @@
               <FilePath>..\USER\APP\src\base_self_det.c</FilePath>
             </File>
             <File>
+              <FileName>func_ir_decoder.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\USER\APP\src\func_ir_decoder.c</FilePath>
+            </File>
+            <File>
+              <FileName>func_pole_decoder.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\USER\APP\src\func_pole_decoder.c</FilePath>
+            </File>
+            <File>
               <FileName>func_docking_guide.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\USER\APP\src\func_docking_guide.c</FilePath>
@@ -632,16 +642,6 @@
               <FileName>func_ir_ack.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\USER\APP\src\func_ir_ack.c</FilePath>
-            </File>
-            <File>
-              <FileName>func_ir_decoder.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\USER\APP\src\func_ir_decoder.c</FilePath>
-            </File>
-            <File>
-              <FileName>func_pole_decoder.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\USER\APP\src\func_pole_decoder.c</FilePath>
             </File>
           </Files>
         </Group>

@@ -76,6 +76,7 @@ int32_t main(void)
         dust_mode_check_and_switch();
         
         pole_decoder_process();
+        ir_decoder_process();
         
         /* 根据标志位，控制风机的转动状态 */
         if(need_duty == 1)
