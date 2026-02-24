@@ -10,17 +10,10 @@
 static uint8_t ir_working_byte;
 static uint8_t ir_capture_counter;
 
-
-
 /* 储存原始接收数据的队列 */
 #define IR_QUEUE_LEN                64
 uint8_t ir_rx_buffer[IR_QUEUE_LEN] = {0};
 queue_circular_t ir_rx_queue = {ir_rx_buffer, 0, 0, IR_QUEUE_LEN};
-
-/* 储存解码后数据的队列 */
-#define IR_DECODED_QUEUE_LEN        32      // 解码后数据队列长度
-uint8_t ir_decoded_buffer[IR_DECODED_QUEUE_LEN] = {0};
-queue_circular_t ir_decoded_queue = {ir_decoded_buffer, 0, 0, IR_DECODED_QUEUE_LEN};
 
 void ir_detect_capture(void)
 {
@@ -58,6 +51,11 @@ void ir_dock_resync_init(ir_decode_t * decode_p)
 	decode_p->bits_count = 0;
 }
 
+
+/* 储存解码后数据的队列 */
+#define IR_DECODED_QUEUE_LEN        32      // 解码后数据队列长度
+uint8_t ir_decoded_buffer[IR_DECODED_QUEUE_LEN] = {0};
+queue_circular_t ir_decoded_queue = {ir_decoded_buffer, 0, 0, IR_DECODED_QUEUE_LEN};
 ir_decode_t ir_decode = {IR_RESYNC, 0};
 
 void ir_decoder_process(void)
@@ -186,4 +184,270 @@ void ir_decoder_process(void)
     }
     
 }
+
+/* 按协议接收到的原始数据包 */
+uint8_t ir_rx_packet[32] = {0x0};
+
+// 协议解析状态机枚举
+typedef enum {
+    PARSE_STATE_WAIT_SYNC_BYTE1 = 0,      // 等待同步字节1 (0x69)
+    PARSE_STATE_WAIT_SYNC_BYTE2,          // 等待同步字节2 (0x96)
+    PARSE_STATE_PROTOCOL_TYPE,            // 协议类型 (0x14)
+    PARSE_STATE_PROTOCOL_VERSION,         // 协议版本
+    PARSE_STATE_MESSAGE_SEQ,              // 消息序号
+    PARSE_STATE_CMD_ID,                   // 命令ID (2字节)
+    PARSE_STATE_MSG_LENGTH,                // 消息长度 (2字节)
+    PARSE_STATE_HEADER_CHECKSUM,          // 消息头校验
+    PARSE_STATE_BODY_CHECKSUM,            // 消息体校验和
+    PARSE_STATE_DEVICE_TYPE,              // 设备类型
+    PARSE_STATE_OTA_TYPE,                 // OTA类型/控制类型
+    PARSE_STATE_RESERVED_FIELD,           // 保留字段
+    PARSE_STATE_FIRMWARE_SIZE,            // 固件大小 (4字节)
+    PARSE_STATE_PACKET_NUMBER,            // 数据包序号 (2字节)
+    PARSE_STATE_DATA_PAYLOAD,             // 数据载荷 (16字节)
+    PARSE_STATE_CTRL_CMD_BYTE2,           // 控制指令第二个字节
+    PARSE_STATE_CTRL_CMD_BYTE3            // 控制指令第三个字节（校验）
+}PROTOCOL_PARSE_STATE_E;
+PROTOCOL_PARSE_STATE_E parse_state = PARSE_STATE_WAIT_SYNC_BYTE1;
+
+uint8_t recv_data = 0xff;
+/* 记录接收到的字节在数组中的位置 */
+uint8_t data_index = 0;
+
+/* 两个字节的message_id用于路由不同消息到对应的处理逻辑 */
+uint8_t recv_len = 0;
+uint16_t message_id = 0;
+
+uint8_t check_sum(uint8_t * arr ,uint8_t len)
+{
+    uint8_t sum = 0;
+	for(int i = 0; i <len; i++)
+	{
+	    sum += arr[i] ;
+	}
+	return sum ;
+}
+
+uint8_t check_sum1 = 0;            //消息体校验和
+
+uint32_t Firmware_size = 0;
+uint8_t recvive_ok_flag = 0;
+
+uint16_t Numbur = 0;
+
+void ir_rx_packet_parse(uint8_t *packet, uint8_t len)
+{
+    while(queue_circular_is_empty(&ir_decoded_queue))
+    {
+        recv_data = queue_circular_get(&ir_decoded_queue);
+
+        if(data_index >= 32)
+        {
+            data_index = 0;
+        }
+
+        switch(parse_state)
+        {
+            case PARSE_STATE_WAIT_SYNC_BYTE1:
+            {
+                if(recv_data == 0x69)
+                {
+                    data_index = 0;
+                    /* 先进行储存，后进行数组的序号递增 */
+                    packet[data_index++] = recv_data;
+                    parse_state = PARSE_STATE_WAIT_SYNC_BYTE2;
+                }
+                else
+                {
+                    packet[data_index++] = recv_data;
+                    parse_state = PARSE_STATE_CTRL_CMD_BYTE2;
+                }
+            }break;
+
+            case PARSE_STATE_WAIT_SYNC_BYTE2:
+            {
+                if(recv_data == 0x96)
+                {
+                    packet[data_index++] = recv_data;
+                    parse_state = PARSE_STATE_PROTOCOL_TYPE;
+                }
+                else
+                {
+                    data_index = 0;
+                    parse_state = PARSE_STATE_WAIT_SYNC_BYTE1;
+                }
+            }break;
+
+            case PARSE_STATE_PROTOCOL_TYPE:
+            {
+                packet[data_index++] = recv_data;
+                parse_state = PARSE_STATE_PROTOCOL_VERSION;
+            }break;
+
+            case PARSE_STATE_PROTOCOL_VERSION:
+            {
+                packet[data_index++] = recv_data;
+                parse_state = PARSE_STATE_MESSAGE_SEQ;
+            }break;
+
+            case PARSE_STATE_MESSAGE_SEQ:
+            {
+                packet[data_index++] = recv_data;
+                parse_state = PARSE_STATE_CMD_ID;
+            }break;
+
+            case PARSE_STATE_CMD_ID:
+            {
+                packet[data_index++] = recv_data;
+                recv_len++;
+                if(recv_len >= 2)
+                {
+                    recv_len = 0;
+                    parse_state = PARSE_STATE_MSG_LENGTH;
+                    message_id = packet[5] << 8 | packet[6];
+                }
+            }break;
+            
+            case PARSE_STATE_MSG_LENGTH:
+            {
+                packet[data_index++] = recv_data;
+                recv_len++;
+                if(recv_len >= 2)
+                {
+                    recv_len = 0;
+                    parse_state = PARSE_STATE_HEADER_CHECKSUM;
+                }
+            }break;
+
+            case PARSE_STATE_HEADER_CHECKSUM:
+            {
+                packet[data_index++] = recv_data;
+                if(check_sum(packet, 9) == packet[9])
+                {
+                    parse_state = PARSE_STATE_BODY_CHECKSUM;
+                }
+                else
+                {
+                    data_index = 0;
+                    parse_state = PARSE_STATE_WAIT_SYNC_BYTE1;
+                }
+            }break;
+
+            case PARSE_STATE_BODY_CHECKSUM:
+            {
+                packet[data_index++] = recv_data;
+                check_sum1 = recv_data;
+                parse_state = PARSE_STATE_DEVICE_TYPE;
+            }break;
+
+            case PARSE_STATE_DEVICE_TYPE:
+            {
+                packet[data_index++] = recv_data;
+                parse_state = PARSE_STATE_OTA_TYPE;
+            }break;
+
+            case PARSE_STATE_OTA_TYPE:
+            {
+                packet[data_index++] = recv_data;
+                if(recv_data == 0)
+                {
+                    parse_state = PARSE_STATE_RESERVED_FIELD;
+                    ota_ok = 0;
+                }
+                else if(recv_data == 0x10)
+                {
+                    parse_state = PARSE_STATE_PACKET_NUMBER;
+                    ota_ok = 0;          
+                }
+                else if(recv_data == 0x04)
+                {
+                    recvive_ok_flag = 1 ;               //升级成功
+                    ota_ok = 1;
+                    data_index = 0;
+                    parse_state = PARSE_STATE_WAIT_SYNC_BYTE1;
+                }
+                else
+                {
+                     data_index = 0;
+                     parse_state = PARSE_STATE_WAIT_SYNC_BYTE1;
+                     ota_ok = 0;
+                }
+            }break;
+
+            case PARSE_STATE_RESERVED_FIELD:
+            {
+                packet[data_index++] = recv_data;
+                parse_state = PARSE_STATE_FIRMWARE_SIZE;
+            }break;
+
+            case PARSE_STATE_FIRMWARE_SIZE:
+            {
+                packet[data_index++] = recv_data;
+                recv_len++;
+                if(recv_len >= 4)
+                {
+                    if(check_sum(packet+11,7) == check_sum1)        //6
+                    {
+                         recvive_ok_flag = 1;                              //接收到固件大小
+                         if(message_id == 0x16)
+                         {
+                             base_work_mode = BASE_WORK_MODE_IR_OTA;
+                             Firmware_size = packet[14]<<24|packet[15]<<16|packet[16]<<8|packet[17] ;
+                         }
+                    }
+                    recv_len = 0; 
+                    data_index = 0;
+                    parse_state = PARSE_STATE_WAIT_SYNC_BYTE1;
+               }
+            }break;
+            
+            case PARSE_STATE_PACKET_NUMBER:
+            {
+                packet[data_index++] = recv_data;
+                recv_len++;
+                if(recv_len >= 2)
+                {
+                    recv_len = 0;
+                    parse_state = PARSE_STATE_DATA_PAYLOAD;
+                    Numbur = recv_data_buf[13];
+                }
+            }break;
+
+            case PARSE_STATE_DATA_PAYLOAD:
+            {
+                packet[data_index++] = recv_data;
+                recv_len++;
+                if(recv_len >= 16)
+                {
+                    recv_len = 0;
+                    parse_state = PARSE_STATE_WAIT_SYNC_BYTE1;
+                    data_index = 0;
+                    if(check_sum(packet+11,20) == check_sum1)          //校验通过，写数据
+                    {
+                        recvive_ok_flag = 1;	                               //接收到数据
+                    }
+                }
+            }break;
+
+            case PARSE_STATE_CTRL_CMD_BYTE2:
+            {
+                packet[data_index++] = recv_data;
+                parse_state = PARSE_STATE_CTRL_CMD_BYTE3;
+            }break;
+
+            case PARSE_STATE_CTRL_CMD_BYTE3:
+            {
+                packet[data_index++] = recv_data;
+                data_index = 0;
+                parse_state = PARSE_STATE_WAIT_SYNC_BYTE1;
+
+                if(((packet[0]+packet[1])&0xff) ==packet[2])
+                {
+                    recvive_ok_flag = 1;
+                }
+            }return;
+        }
+    }
+}
+
 

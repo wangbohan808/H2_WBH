@@ -6,6 +6,7 @@ typedef enum
 {
     BASE_WORK_MODE_NORMAL = 0,
     BASE_WORK_MODE_TEST = 1,
+    BASE_WORK_MODE_IR_OTA = 2,
 }BASE_WORK_MODE_E;
 
 /* 自检函数决定机器是否在位 */
