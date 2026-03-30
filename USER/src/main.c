@@ -73,9 +73,9 @@ int32_t main(void)
 #endif
         
         /* 检查集尘模式并自动切换（如果模式一超过2天未收到通讯，切换到模式二） */
-        dust_mode_check_and_switch();
-        
+        dust_mode_check_and_switch();        
         pole_decoder_process();
+
         ir_decoder_process();
         
         /* 根据标志位，控制风机的转动状态 */
@@ -114,7 +114,10 @@ static void Hardware_init(void)
     /* 捕获充电电流的ADC */
     adc_capture_cfg();
 
+    /* 发送引导码与通讯码 */
     ir_output_init();
+
+    /* 通讯与产测的时候代替极片接收命令与反馈*/
     ir_input_init();
 
     /* 配置控制风机转动的端口 */
