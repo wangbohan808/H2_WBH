@@ -28,7 +28,11 @@ extern uint8_t ota_ok;
 
 void ir_detect_capture(void);
 void ir_decoder_process(void);
+void ir_rx_packet_parse(uint8_t *packet, uint8_t len);
 
 extern uint8_t	ota_ok;
+extern uint8_t ir_rx_packet[32];
+extern uint16_t message_id;
+extern uint8_t receive_ok_flag;
 
 #endif /* __FUNC_IR_DECODER_H */

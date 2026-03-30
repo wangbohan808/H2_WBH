@@ -1,4 +1,11 @@
 #include "base_ir_mode_process.h"
+#include "func_ir_decoder.h"
+#include "base_state.h"
+#include "func_ir_ack.h"
+#include "base_event.h"
+#include "tim_cfg.h"
+#include "func_dust_collect.h"
+#include "dev_led.h"
 
 static void handle_ir_normal_message(void);
 static void handle_ir_version_request(void);
@@ -17,7 +24,7 @@ void Station_send_ack(uint8_t ack,uint8_t cmd1)
     sent_buff[9] = check_sum(sent_buff, 9);
     sent_buff[12] = ack;
     sent_buff[10] = check_sum(sent_buff + 11, 2);
-    set_ir_send_bite(13);
+    set_ir_sent_bite(13);
     if (ota_ok == 1)
     {
         set_ir_send_count(6);
@@ -33,9 +40,9 @@ void base_ir_mode_process(void)
     ir_rx_packet_parse(ir_rx_packet,sizeof(ir_rx_packet));
 
     /* 统一处理非 OTA 模式下的红外普通消息 */
-    if (get_base_work_mode() != BASE_WORK_MODE_IR_OTA || message_id == 0x24 || message_id == 0x18)
+    if (base_work_mode != BASE_WORK_MODE_IR_OTA || message_id == 0x24 || message_id == 0x18)
     {
-        if (recvive_ok_flag == 1)
+        if (receive_ok_flag == 1)
         {
             receive_ok_flag = 0;
             timer_cnt = timer_ms();
@@ -60,7 +67,7 @@ void base_ir_mode_process(void)
             message_id = 0;
         }
     }
-    switch(get_base_work_mode())
+    switch(base_work_mode)
     {
         case BASE_WORK_MODE_NORMAL:
         {
@@ -100,14 +107,14 @@ static void handle_ir_normal_message(void)
 /* 版本请求消息处理（0x18） */
 static void handle_ir_version_request(void)
 {
-    send_buff[0] = 0x69;
-    send_buff[1] = 0x96;
-    send_buff[2] = 0x14;
-    send_buff[8] = 0x03;
-    send_buff[6] = message_id;
-    send_buff[9] = check_sum(send_buff, 9);
-    send_buff[12] = version[1];
-    send_buff[10] = check_sum(send_buff + 11, 2);
+    sent_buff[0] = 0x69;
+    sent_buff[1] = 0x96;
+    sent_buff[2] = 0x14;
+    sent_buff[8] = 0x03;
+    sent_buff[6] = message_id;
+    sent_buff[9] = check_sum(sent_buff, 9);
+    sent_buff[12] = version[1];
+    sent_buff[10] = check_sum(sent_buff + 11, 2);
 
     set_ir_send_count(5);
     set_ir_sent_bite(13);
@@ -265,6 +272,7 @@ static void handle_work_mode_normal(void)
     }
 }
 
+static void base_mode_full_go_process(void);
 /* 产测工作模式处理入口 */
 static void handle_work_mode_test(void)
 {
@@ -276,9 +284,9 @@ static void handle_work_mode_test(void)
 static void handle_work_mode_ir_ota(void)
 {
     /* 接收完整数据包，设置发送标志位 */
-    if (recvive_ok_flag == 1)
+    if (receive_ok_flag == 1)
     {
-        recvive_ok_flag = 0;
+        receive_ok_flag = 0;
         timer_cnt = timer_ms();
         sent_ok = 0;
         if (message_id == 0x17)
@@ -316,7 +324,7 @@ static void handle_work_mode_ir_ota(void)
     if (timer_elapsed(timer_cnt) > 50 * 1000)
     {
         ota_ok = 0;
-        set_base_work_mode(WORK_MODE_IDEL);
+        base_work_mode = BASE_WORK_MODE_NORMAL;
         set_light_twinkle_time(0);
         bin_crc_data = 0;
     }
@@ -345,7 +353,7 @@ static void handle_work_mode_ir_ota(void)
                     else                                //bin文件校验错误
                     {
                         ota_ok = 0;
-                        set_base_work_mode(WORK_MODE_IDEL);
+                        base_work_mode = BASE_WORK_MODE_NORMAL;
                         set_light_twinkle_time(0);
                         bin_crc_data = 0;
                     }

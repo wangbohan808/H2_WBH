@@ -60,4 +60,6 @@ void clear_all_event(void);
 /* 红外命令检查接口：返回命令在表中的索引（事件编号），0 表示未找到或预留 */
 uint8_t ir_check_is_cmd(uint16_t ir_code);
 
+extern uint32_t base_event;
+
 #endif /* __BASE_EVENT_H */

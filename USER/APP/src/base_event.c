@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 /* 32位最多指代32个事件 */
-static uint32_t base_event = BASE_EVENT_RESERVE;
+uint32_t base_event = BASE_EVENT_RESERVE;
 
 void create_base_event(BASE_EVENT_E event)
 {
