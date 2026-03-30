@@ -235,6 +235,8 @@ uint8_t recvive_ok_flag = 0;
 
 uint16_t Numbur = 0;
 
+uint8_t ota_ok = 0;
+
 void ir_rx_packet_parse(uint8_t *packet, uint8_t len)
 {
     while(queue_circular_is_empty(&ir_decoded_queue))
@@ -409,7 +411,7 @@ void ir_rx_packet_parse(uint8_t *packet, uint8_t len)
                 {
                     recv_len = 0;
                     parse_state = PARSE_STATE_DATA_PAYLOAD;
-                    Numbur = recv_data_buf[13];
+                    Numbur = packet[13];
                 }
             }break;
 
@@ -422,9 +424,11 @@ void ir_rx_packet_parse(uint8_t *packet, uint8_t len)
                     recv_len = 0;
                     parse_state = PARSE_STATE_WAIT_SYNC_BYTE1;
                     data_index = 0;
-                    if(check_sum(packet+11,20) == check_sum1)          //校验通过，写数据
+
+                    /* 校验通过,标志一包数据接收完成 */
+                    if(check_sum(packet+11,20) == check_sum1)         
                     {
-                        recvive_ok_flag = 1;	                               //接收到数据
+                        recvive_ok_flag = 1;	                               
                     }
                 }
             }break;
@@ -441,6 +445,7 @@ void ir_rx_packet_parse(uint8_t *packet, uint8_t len)
                 data_index = 0;
                 parse_state = PARSE_STATE_WAIT_SYNC_BYTE1;
 
+                /* 校验通过,标志一包数据接收完成 */
                 if(((packet[0]+packet[1])&0xff) ==packet[2])
                 {
                     recvive_ok_flag = 1;

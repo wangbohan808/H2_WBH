@@ -1,6 +1,8 @@
 #ifndef __FUNC_IR_DECODER_H
 #define __FUNC_IR_DECODER_H
 
+#include <stdint.h>
+
 typedef enum
 {
     IR_RESYNC,          // 等待信号进入同步
@@ -21,6 +23,8 @@ typedef struct
 #define DOCK_RESYNC_TICKS       (20 * 2)  
 #define DOCK_HEADER_LOW         (25)           
 #define DOCK_DATA_BIT_VALUE_1_TICK  (12)
+
+extern uint8_t ota_ok;
 
 void ir_detect_capture(void);
 void ir_decoder_process(void);
