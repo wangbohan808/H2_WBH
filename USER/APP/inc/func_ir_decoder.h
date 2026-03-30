@@ -29,4 +29,6 @@ extern uint8_t ota_ok;
 void ir_detect_capture(void);
 void ir_decoder_process(void);
 
+extern uint8_t	ota_ok;
+
 #endif /* __FUNC_IR_DECODER_H */

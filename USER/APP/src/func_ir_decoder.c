@@ -237,6 +237,7 @@ uint16_t Numbur = 0;
 
 uint8_t ota_ok = 0;
 
+
 void ir_rx_packet_parse(uint8_t *packet, uint8_t len)
 {
     while(queue_circular_is_empty(&ir_decoded_queue))
