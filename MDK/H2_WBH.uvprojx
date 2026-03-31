@@ -624,11 +624,6 @@
               <FilePath>..\USER\APP\src\base_event.c</FilePath>
             </File>
             <File>
-              <FileName>base_ir_mode_process.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\USER\APP\src\base_ir_mode_process.c</FilePath>
-            </File>
-            <File>
               <FileName>func_ir_decoder.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\USER\APP\src\func_ir_decoder.c</FilePath>
